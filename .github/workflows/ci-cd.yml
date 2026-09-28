@@ -74,7 +74,7 @@ jobs:
   # ------------------------------------------------------------------ #
   build-and-deploy:
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # for OIDC auth to AWS, no long-lived keys in the repo
