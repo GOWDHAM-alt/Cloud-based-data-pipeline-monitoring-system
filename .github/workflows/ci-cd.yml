@@ -1,0 +1,120 @@
+name: Pipeline & Cloud CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pipelines/**"
+      - "deploy/**"
+      - ".github/workflows/ci-cd.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "pipelines/**"
+
+jobs:
+  # ------------------------------------------------------------------ #
+  # Build + test on every push and PR
+  # ------------------------------------------------------------------ #
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipelines
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate sample data
+        run: python data/generate_sample_data.py
+
+      - name: Start mock API server
+        run: |
+          nohup python -m uvicorn tools.mock_server:app --port 8001 > mock_server.log 2>&1 &
+          sleep 2
+          curl -sf http://localhost:8001/health
+
+      - name: Run pipeline against the mock API
+        env:
+          PYTHONPATH: .
+          MONITOR_API_URL: http://localhost:8001
+          MONITOR_API_KEY: ci-test-key
+          MONITORING_ENABLED: "true"
+        run: python -m pipeline.run_pipeline
+
+      - name: Run all fault injection scenarios
+        env:
+          PYTHONPATH: .
+          MONITOR_API_URL: http://localhost:8001
+          MONITOR_API_KEY: ci-test-key
+          MONITORING_ENABLED: "true"
+        run: python -m faults.fault_injector all
+
+      - name: Confirm monitoring-off mode never calls the API
+        env:
+          PYTHONPATH: .
+          MONITORING_ENABLED: "false"
+        run: python -m pipeline.run_pipeline
+
+      - name: Upload mock server log (debugging aid)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mock-server-log
+          path: pipelines/mock_server.log
+
+  # ------------------------------------------------------------------ #
+  # Build & push images, then deploy — only on merge to main
+  # ------------------------------------------------------------------ #
+  build-and-deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # for OIDC auth to AWS, no long-lived keys in the repo
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push pipeline image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f deploy/Dockerfile.pipeline -t $REGISTRY/pipeline-runner:$IMAGE_TAG .
+          docker push $REGISTRY/pipeline-runner:$IMAGE_TAG
+
+      - name: Build and push metrics-agent image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -f deploy/Dockerfile.agent -t $REGISTRY/metrics-agent:$IMAGE_TAG .
+          docker push $REGISTRY/metrics-agent:$IMAGE_TAG
+
+      - name: Update ECS task definitions and force new deployment
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          CLUSTER: ${{ secrets.ECS_CLUSTER_NAME }}
+        run: |
+          aws ecs update-service --cluster "$CLUSTER" --service metrics-agent --force-new-deployment
+          # pipeline-runner is a scheduled task, not a service — the
+          # EventBridge rule always pulls ":latest", so re-tag it:
+          aws ecr batch-get-image --repository-name pipeline-runner --image-ids imageTag=$IMAGE_TAG --query 'images[].imageManifest' --output text > manifest.json
+          aws ecr put-image --repository-name pipeline-runner --image-tag latest --image-manifest file://manifest.json

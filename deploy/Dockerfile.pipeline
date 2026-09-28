@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY pipelines/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY pipelines/ .
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Actual env values (MONITOR_API_URL, MONITOR_API_KEY, etc.) are
+# injected at deploy time via the platform's secret store / task
+# definition — never baked into the image.
+
+ENTRYPOINT ["python", "-m", "pipeline.run_pipeline"]

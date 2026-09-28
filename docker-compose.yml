@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16
+    container_name: monitor-db
+    environment:
+      POSTGRES_USER: monitor
+      POSTGRES_PASSWORD: monitor123
+      POSTGRES_DB: pipeline_monitor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monitor -d pipeline_monitor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: monitor-backend
+    environment:
+      STAGE_DURATION_MAX_SECONDS: "3"
+      DATABASE_URL: postgresql+psycopg2://monitor:monitor123@db:5432/pipeline_monitor
+      MONITOR_API_KEY: devkey123
+      ALLOWED_ORIGINS: http://localhost:5174
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        VITE_API_URL: http://localhost:8001
+    container_name: monitor-dashboard
+    ports:
+      - "5174:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

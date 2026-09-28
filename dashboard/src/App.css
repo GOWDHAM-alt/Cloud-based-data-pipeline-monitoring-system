@@ -1,0 +1,37 @@
+.page { max-width: 1200px; margin: 0 auto; padding: 24px; font-family: system-ui, sans-serif; color: #1f2937; }
+header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+h1 { margin: 0; font-size: 24px; }
+h2 { margin: 0 0 12px; font-size: 18px; }
+h3 { margin: 20px 0 8px; font-size: 15px; }
+.muted { color: #6b7280; }
+.small { font-size: 12px; }
+.error { background: #fee2e2; color: #991b1b; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.card { background: #f3f4f6; border-radius: 8px; padding: 16px; }
+.card-value { font-size: 28px; font-weight: 600; }
+.card-label { color: #6b7280; font-size: 13px; }
+.card.ok .card-value { color: #15803d; }
+.card.bad .card-value { color: #b91c1c; }
+.card.warn .card-value { color: #b45309; }
+
+.grid { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; margin-bottom: 20px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 20px; overflow-x: auto; }
+.grid .panel { margin-bottom: 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: #6b7280; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+td { padding: 8px; border-bottom: 1px solid #f3f4f6; }
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: #f9fafb; }
+tr.selected { background: #eff6ff; cursor: pointer; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #e5e7eb; }
+.badge.success { background: #dcfce7; color: #166534; }
+.badge.failed, .badge.high, .badge.error { background: #fee2e2; color: #991b1b; }
+.badge.running, .badge.info { background: #dbeafe; color: #1e40af; }
+.badge.medium, .badge.warning { background: #fef3c7; color: #92400e; }
+
+.alerts { list-style: none; padding: 0; margin: 0; }
+.alerts li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }

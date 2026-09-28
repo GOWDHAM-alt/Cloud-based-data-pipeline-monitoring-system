@@ -1,0 +1,53 @@
+# Local integration testing for the pipeline + cloud side, using the
+# mock API server in place of Owner A's real backend. This file is
+# under contracts-adjacent territory (Section 9) — changes need
+# Owner A's approval since the real stack will add backend/dashboard/
+# postgres services alongside these.
+#
+# Run:  docker compose -f deploy/docker-compose.yml up --build
+
+services:
+  mock-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.mock-api
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pipeline:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.pipeline
+    environment:
+      MONITOR_API_URL: http://mock-api:8001
+      MONITOR_API_KEY: local-dev-key
+      MONITORING_ENABLED: "true"
+      PIPELINE_DATA_SOURCE: csv
+      PIPELINE_SOURCE_PATH: data/sample_sales.csv
+    depends_on:
+      mock-api:
+        condition: service_healthy
+    volumes:
+      - pipeline-data:/app/data
+
+  metrics-agent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.agent
+    environment:
+      MONITOR_API_URL: http://mock-api:8001
+      MONITOR_API_KEY: local-dev-key
+      MONITORING_ENABLED: "true"
+      METRICS_INTERVAL_SECONDS: "10"
+      METRICS_HOST_NAME: pipeline-worker
+    depends_on:
+      mock-api:
+        condition: service_healthy
+
+volumes:
+  pipeline-data:

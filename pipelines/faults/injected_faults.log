@@ -1,0 +1,4 @@
+{"fault_type": "dropped_column", "injected_at": "2026-09-28T09:28:33Z", "run_id": "e004c4c0-9112-4289-ab6b-b431cd968a12"}
+{"fault_type": "delayed_source", "injected_at": "2026-09-28T09:28:34Z", "run_id": "5dd2788f-dac7-4aed-81c1-d422cf74552b"}
+{"fault_type": "null_spike", "injected_at": "2026-09-28T09:28:39Z", "run_id": "b7b7cbd7-1f4f-47d6-9245-00aa04b34705"}
+{"fault_type": "stage_crash", "injected_at": "2026-09-28T09:28:40Z", "run_id": "297f9020-f70b-4eda-98e3-1a44ca50f075"}
