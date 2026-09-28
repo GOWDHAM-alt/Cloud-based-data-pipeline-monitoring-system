@@ -9,7 +9,7 @@ from sqlalchemy import func
 from . import models, schemas
 from .database import get_db, init_db
 from .auth import verify_api_key
-from .rules import evaluate_run
+from .rules import evaluate_run, evaluate_metric
 
 app = FastAPI(title="Pipeline Monitoring API")
 
@@ -140,6 +140,9 @@ def report_infra_metric(metric: schemas.InfraMetricCreate, db: Session = Depends
         run_id=metric.run_id,
     )
     db.add(db_metric)
+    db.commit()
+    db.refresh(db_metric)
+    evaluate_metric(db, db_metric)
     db.commit()
     db.refresh(db_metric)
     return db_metric

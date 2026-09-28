@@ -1,8 +1,11 @@
 import os
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy.orm import Session
 
 from . import models
 
+RESOURCE_ALERT_COOLDOWN_SECONDS = int(os.getenv("RESOURCE_ALERT_COOLDOWN_SECONDS", "300"))
 STAGE_DURATION_MAX = float(os.getenv("STAGE_DURATION_MAX_SECONDS", "120"))
 COMPLETENESS_MIN = float(os.getenv("COMPLETENESS_MIN", "0.95"))
 RECORD_CHANGE_MAX = float(os.getenv("RECORD_COUNT_CHANGE_MAX", "0.2"))
@@ -108,3 +111,35 @@ def evaluate_run(db: Session, run_id):
         if float(m.memory_percent) > MEMORY_MAX:
             _raise(db, run_id, "high_memory", "medium",
                    f"Memory at {m.memory_percent}% on {m.host} (limit {MEMORY_MAX:.0f}%)")
+
+
+
+def evaluate_metric(db: Session, metric):
+    checks = [
+        ("high_cpu", float(metric.cpu_percent), CPU_MAX, "CPU"),
+        ("high_memory", float(metric.memory_percent), MEMORY_MAX, "Memory"),
+    ]
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=RESOURCE_ALERT_COOLDOWN_SECONDS)
+    for rule, value, limit, label in checks:
+        if value <= limit:
+            continue
+        recent = (
+            db.query(models.Alert)
+            .filter(
+                models.Alert.rule == rule,
+                models.Alert.message.contains(f"on {metric.host} "),
+                models.Alert.created_at >= cutoff,
+            )
+            .first()
+        )
+        if recent:
+            continue
+        db.add(
+            models.Alert(
+                run_id=metric.run_id,
+                rule=rule,
+                severity="medium",
+                message=f"{label} at {value:.1f}% on {metric.host} (limit {limit:.0f}%)",
+            )
+        )
+        db.flush()
