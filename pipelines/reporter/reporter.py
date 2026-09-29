@@ -18,7 +18,7 @@ import os
 import time
 import uuid
 from typing import Any, Optional
-
+from datetime import datetime, timezone
 import requests
 
 logger = logging.getLogger("monitor_reporter")
@@ -210,8 +210,7 @@ class MonitorReporter:
 
 def now_iso() -> str:
     """UTC timestamp in the ISO 8601 'Z' format the contract requires."""
-    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z"
-
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 # kept as an alias since earlier drafts of this module used a leading
 # underscore; other modules should prefer now_iso().

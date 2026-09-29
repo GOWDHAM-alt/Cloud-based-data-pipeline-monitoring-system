@@ -42,7 +42,7 @@ def _log_fault(fault_type: str, injected_at: str, run_id: str):
 def _fault_metadata(fault_type: str) -> dict:
     return {
         "fault_type": fault_type,
-        "fault_injected_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "fault_injected_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
     }
 
 

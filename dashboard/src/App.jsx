@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { getSummary, getRuns, getRun, getAlerts, getInfra } from "./api";
+import { getSummary, getRuns, getRun, getAlerts, getInfra, getTrends } from "./api";
+import Charts from "./Charts";
 import "./App.css";
 
 const fmt = (iso) => (iso ? new Date(iso).toLocaleString() : "-");
 
 function duration(start, end) {
   if (!start || !end) return "-";
-  return `${Math.round((new Date(end) - new Date(start)) / 1000)}s`;
+  const s = (new Date(end) - new Date(start)) / 1000;
+  return s < 10 ? `${s.toFixed(2)}s` : `${Math.round(s)}s`;
 }
 
 function Badge({ value }) {
@@ -31,19 +33,22 @@ export default function App() {
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
   const [updated, setUpdated] = useState(null);
+  const [trends, setTrends] = useState([]);
 
   const load = useCallback(async () => {
     try {
-      const [s, r, a, i] = await Promise.all([
+      const [s, r, a, i, t] = await Promise.all([
         getSummary(),
         getRuns(),
         getAlerts(),
-        getInfra(),
+        getInfra(60),
+        getTrends(),
       ]);
       setSummary(s);
       setRuns(r);
       setAlerts(a);
       setInfra(i);
+      setTrends(t);
       setError(null);
       setUpdated(new Date());
     } catch (e) {
@@ -87,6 +92,8 @@ export default function App() {
         <Card label="Running" value={summary?.running} />
         <Card label="Recent alerts" value={alerts.length} tone="warn" />
       </section>
+
+      <Charts trends={trends} alerts={alerts} infra={infra} />
 
       <div className="grid">
         <section className="panel">
@@ -233,7 +240,7 @@ export default function App() {
               <tr><th>Host</th><th>Time</th><th>CPU %</th><th>Memory %</th></tr>
             </thead>
             <tbody>
-              {infra.map((m, i) => (
+              {infra.slice(0,10).map((m, i) => (
                 <tr key={i}>
                   <td>{m.host}</td>
                   <td>{fmt(m.timestamp)}</td>

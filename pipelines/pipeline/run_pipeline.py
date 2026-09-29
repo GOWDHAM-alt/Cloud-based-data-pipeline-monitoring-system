@@ -104,7 +104,7 @@ def main():
         from datetime import datetime, timezone
         fault_metadata = {
             "fault_type": args.fault,
-            "fault_injected_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "fault_injected_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
         }
 
     run_once(reporter, fault_metadata=fault_metadata)

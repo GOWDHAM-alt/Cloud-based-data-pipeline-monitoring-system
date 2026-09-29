@@ -11,3 +11,4 @@ export const getRuns = (limit = 50) => get(`/api/v1/runs?limit=${limit}`);
 export const getRun = (id) => get(`/api/v1/runs/${id}`);
 export const getAlerts = (limit = 50) => get(`/api/v1/alerts?limit=${limit}`);
 export const getInfra = (limit = 10) => get(`/api/v1/metrics/infra?limit=${limit}`);
+export const getTrends = (limit = 30) => get(`/api/v1/trends?limit=${limit}`);

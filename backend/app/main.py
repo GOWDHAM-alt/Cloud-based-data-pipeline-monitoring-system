@@ -220,3 +220,50 @@ def reevaluate_all(db: Session = Depends(get_db)):
         evaluate_run(db, r.run_id)
     db.commit()
     return {"runs_evaluated": len(runs), "alerts": db.query(models.Alert).count()}
+
+
+@app.get("/api/v1/trends", response_model=list[schemas.TrendPoint])
+def get_trends(limit: int = 30, pipeline: Optional[str] = None, db: Session = Depends(get_db)):
+    q = db.query(models.Run)
+    if pipeline:
+        q = q.filter(models.Run.pipeline == pipeline)
+    runs = q.order_by(models.Run.started_at.desc()).limit(limit).all()
+    runs.reverse()
+    if not runs:
+        return []
+    ids = [r.run_id for r in runs]
+
+    stage_map = {}
+    for s in db.query(models.Stage).filter(models.Stage.run_id.in_(ids)):
+        if s.started_at and s.ended_at:
+            stage_map.setdefault(s.run_id, {})[s.stage] = (s.ended_at - s.started_at).total_seconds()
+
+    quality_map = {}
+    for m in db.query(models.QualityMeasurement).filter(
+        models.QualityMeasurement.run_id.in_(ids),
+        models.QualityMeasurement.metric.in_(["completeness", "validity"]),
+    ):
+        quality_map.setdefault(m.run_id, {})[m.metric] = float(m.value)
+
+    alert_map = dict(
+        db.query(models.Alert.run_id, func.count())
+        .filter(models.Alert.run_id.in_(ids))
+        .group_by(models.Alert.run_id)
+        .all()
+    )
+
+    points = []
+    for r in runs:
+        points.append({
+            "run_id": r.run_id,
+            "started_at": r.started_at,
+            "status": r.status,
+            "duration_seconds": (r.ended_at - r.started_at).total_seconds() if r.ended_at else None,
+            "records_in": r.records_in,
+            "records_out": r.records_out,
+            "stage_durations": stage_map.get(r.run_id, {}),
+            "completeness": quality_map.get(r.run_id, {}).get("completeness"),
+            "validity": quality_map.get(r.run_id, {}).get("validity"),
+            "alert_count": alert_map.get(r.run_id, 0),
+        })
+    return points

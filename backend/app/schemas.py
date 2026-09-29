@@ -147,3 +147,15 @@ class AlertOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class TrendPoint(BaseModel):
+    run_id: uuid.UUID
+    started_at: datetime
+    status: str
+    duration_seconds: Optional[float] = None
+    records_in: Optional[int] = None
+    records_out: Optional[int] = None
+    stage_durations: dict[str, float] = {}
+    completeness: Optional[float] = None
+    validity: Optional[float] = None
+    alert_count: int = 0
